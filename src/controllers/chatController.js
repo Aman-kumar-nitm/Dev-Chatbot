@@ -81,8 +81,10 @@ const sendMessage = async (req, res) => {
 
     const aiResponse = await callLlama(prompt);
     const aiText = aiResponse.choices[0].message.content;
-
-    req.user.tokenBalance -= 100;
+    if(req.user.role==='user'){
+ req.user.tokenBalance -= 100;
+    }
+   
 
     await Message.create({
       chatId,
