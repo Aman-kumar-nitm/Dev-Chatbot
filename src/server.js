@@ -4,7 +4,7 @@ const cors = require('cors');
 const morgan=require('morgan');
 const cookieParser=require('cookie-parser');
 const connectDB=require('./config/db')
-
+const helmet = require("helmet");
 
 
 
@@ -18,11 +18,14 @@ app.use(
 );
 const passport = require("./config/passport");
 app.use(passport.initialize());
+
+app.use(helmet());
 app.use(morgan('tiny'));
 app.use(cookieParser());
 app.use(
   cors({
-    origin: "http://localhost:5173", 
+    origin: process.env.CLIENT_URL, 
+   
     credentials: true, 
   })
 );

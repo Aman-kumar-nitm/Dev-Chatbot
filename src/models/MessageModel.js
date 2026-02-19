@@ -5,7 +5,8 @@ const messageSchema = new mongoose.Schema(
     chatId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Chat",
-      required: true
+      required: true,
+      index:true
     },
 
     sender: {
@@ -14,9 +15,21 @@ const messageSchema = new mongoose.Schema(
       required: true
     },
 
+    type: {
+      type: String,
+      enum: ["TEXT", "IMAGE", "FILE", "CODE"],
+      default: "TEXT"
+    },
+
+    fileUrl: String,
+    fileName: String,
+    mimeType: String,
+
     content: {
       type: String,
-      required: true
+      required: function () {
+    return this.type === "TEXT" || this.type === "CODE";
+  }
     },
 
     tokenUsage: {
@@ -26,5 +39,6 @@ const messageSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
+messageSchema.index({ chatId: 1, createdAt: 1 });
 module.exports = mongoose.model("Message", messageSchema);
+

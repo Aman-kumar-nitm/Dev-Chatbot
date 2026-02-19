@@ -11,8 +11,8 @@ passport.use(
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        const email = profile.emails[0].value;
-
+        const email = profile.emails?.[0]?.value;
+        if (!email) return done(new Error("Email not provided"), null);
 
         let user = await User.findOne({ googleId: profile.id });
         if (user) {
@@ -36,7 +36,7 @@ passport.use(
           googleId: profile.id,
           provider: "google",
           isVerified: true,
-          avatar: profile.photos[0]?.value,
+          avatar: profile.photos?.[0]?.value,
         });
 
         return done(null, user);

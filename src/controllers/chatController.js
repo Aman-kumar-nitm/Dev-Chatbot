@@ -1,7 +1,7 @@
 const Chat = require('../models/ChatModel.js');
 const Message = require('../models/MessageModel.js');
 const callLlama = require('../utils/llama.js');
-
+const User=require('../models/user.js')
 const createChat = async (req, res) => {
   try {
     const chat = await Chat.create({ userId: req.user._id });
@@ -35,9 +35,9 @@ const sendMessage = async (req, res) => {
     // if (req.user.role === "user" && msgCount >= 10) {
     //   return res.status(403).json({ error: "Message limit reached" });
     // }
-    if (req.user.tokenBalance < 100 && req.user.role === 'user') {
-      return res.status(403).json({ error: "Insufficient tokens" });
-    }
+    // if (req.user.tokenBalance < 100 && req.user.role === 'user') {
+    //   return res.status(403).json({ error: "Insufficient tokens" });
+    // }
     if (msgCount == 0) {
   const titlePrompt = [
     {
@@ -70,37 +70,83 @@ const sendMessage = async (req, res) => {
 
     const history = await Message.find({ chatId })
       .sort({ createdAt: -1 })
-      .limit(10);
+      .limit(10).limit(req.user.role === "Dev-Pro" ? 12 : 4);
+    const systemPrompt = {
+  role: "system",
+  content: `
+You are a helpful AI assistant.
 
-    const prompt = history.reverse().map(m => ({
-      role: m.sender === "USER" ? "user" : "assistant",
-      content: m.content
-    }));
+Always format responses in clean Markdown.
+
+Rules:
+- Use proper headings (##) for sections
+- Use bullet points for lists
+- Use triple backticks for code blocks with language
+- Use inline code for small code snippets
+- Format links properly
+- Keep answers clean and readable
+- Do NOT wrap the entire response in a code block
+`
+};
+
+    const prompt = [
+  systemPrompt,
+  ...history.reverse().map(m => ({
+    role: m.sender === "USER" ? "user" : "assistant",
+    content: m.content
+  }))
+];
+
 
     
 
-    const aiResponse = await callLlama(prompt);
-    const aiText = aiResponse.choices[0].message.content;
-    if(req.user.role==='user'){
- req.user.tokenBalance -= 100;
-    }
-   
+    const aiResponse = await callLlama(prompt, {
+  maxTokens: req.user.role === "Dev-Pro" ? 700 : 250,
+});
 
-    await Message.create({
-      chatId,
-      sender: "AI",
-      content: aiText,
-      tokenUsage: aiResponse.usage.total_tokens,
-      currToken:req.user.tokenBalance
-    });
+const aiText = aiResponse.choices[0].message.content;
+const tokensUsed = aiResponse.usage?.total_tokens || 0;
 
-    await req.user.save();
+let updatedUser = req.user;
 
-    await Chat.findByIdAndUpdate(chatId, {
-      updatedAt: new Date()
-    });
+// 🔐 Atomic token deduction (only for normal users)
+if (req.user.role === "user") {
+  updatedUser = await User.findOneAndUpdate(
+    {
+      _id: req.user._id,
+      tokenBalance: { $gte: tokensUsed } // ensure enough tokens
+    },
+    {
+      $inc: { tokenBalance: -tokensUsed }
+    },
+    { new: true }
+  );
+  console.log("TOKENS USED:", tokensUsed);
+console.log("USER TOKENS:", req.user.tokenBalance);
 
-    res.json({ reply: aiText,currToken:req.user.tokenBalance });
+  if (!updatedUser) {
+    return res.status(403).json({ error: "Insufficient tokens" });
+  }
+}
+
+// 💬 Store AI message
+await Message.create({
+  chatId,
+  sender: "AI",
+  content: aiText,
+  tokenUsage: tokensUsed
+});
+
+// 🕒 Update chat activity (optional — only if you don't use lastMessage system)
+// await Chat.findByIdAndUpdate(chatId, {
+//   updatedAt: new Date()
+// });
+
+res.json({
+  reply: aiText,
+  currToken: updatedUser.tokenBalance
+});
+
 
   } catch (error) {
     console.error(error);
@@ -193,3 +239,5 @@ module.exports = { createChat, sendMessage, getChats, getMessages ,deleteChat};
 
 
 // two update needed token update for each ai response and for dev-pro instead of 1000 bulky message ones cursor based scrolling
+
+

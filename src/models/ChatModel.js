@@ -11,9 +11,14 @@ const chatSchema = new mongoose.Schema(
     title: {
       type: String,
       default: "New Chat"
-    }
+    },
+
+    lastMessage: String,
+    lastMessageAt: Date
+
   },
   { timestamps: true }
 );
-
+chatSchema.index({ userId: 1, createdAt: -1 });
 module.exports = mongoose.model("Chat", chatSchema);
+

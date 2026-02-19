@@ -9,12 +9,13 @@ authRouter.post("/register", register);
 authRouter.post("/verify-otp",verifyOtp);
 authRouter.post("/login", login);
 authRouter.post("/logout", logout);
-authRouter.get("/check",authenticate("Dev-pro"),checkAuth);
+authRouter.get("/check",authenticate("Dev-Pro"),checkAuth);
 authRouter.post("/forgetPassword",forgetPassword)
 authRouter.post("/resetPassword",resetPassword)
 authRouter.get(
   "/google",
-  passport.authenticate("google", { scope: ["profile", "email"] })
+  passport.authenticate("google", { scope: ["profile", "email"],
+  state: true })
 );
 
 authRouter.get(
